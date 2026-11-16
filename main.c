@@ -59,7 +59,7 @@ static int board_x(const Game *g) { return (win_w(g) - g->cols * CELL) / 2; }
 
 /* ---------- game logic ---------- */
 
-static void new_game(Game *g, int diff, SDL_Window *win) {
+static void new_game(Game *g, int diff, SDL_Window *win, SDL_Renderer *ren) {
   g->diff = diff;
   g->cols = PRESETS[diff].cols;
   g->rows = PRESETS[diff].rows;
@@ -73,8 +73,17 @@ static void new_game(Game *g, int diff, SDL_Window *win) {
   g->boom = -1;
   g->start_ms = 0;
   g->final_secs = 0;
-  if (win)
-    SDL_SetWindowSize(win, win_w(g), win_h(g));
+  if (win && ren) {
+    int need_w = win_w(g), need_h = win_h(g);
+    int cw, ch;
+    SDL_GetWindowSize(win, &cw, &ch);
+    if (cw < need_w || ch < need_h)
+      SDL_SetWindowSize(win, cw < need_w ? need_w : cw,
+                        ch < need_h ? need_h : ch);
+    SDL_SetRenderLogicalPresentation(ren, need_w, need_h,
+                                     SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    SDL_SetWindowMinimumSize(win, need_w / 2, need_h / 2);
+  }
 }
 
 static int elapsed_secs(const Game *g) {
@@ -233,7 +242,7 @@ typedef struct {
 } Btn;
 
 static Btn diff_button(const Game *g, int k) {
-  Btn b = {(float)((win_w(g) - 352) / 2 + k * 120), 8, 112, 30};
+  Btn b = {(float)((win_w(g) - 352) / 2. + k * 120), 8, 112, 30};
   return b;
 }
 
@@ -283,17 +292,21 @@ int main(int argc, char **argv) {
   static Game g;
   rng_seed(&g.rng, (uint64_t)SDL_GetPerformanceCounter() ^
                        ((uint64_t)time(NULL) * 0x9E3779B97F4A7C15ULL));
-  new_game(&g, 0, NULL);
+  new_game(&g, 0, NULL, NULL);
 
   SDL_Window *win = NULL;
   SDL_Renderer *ren = NULL;
   if (!SDL_CreateWindowAndRenderer("Minesweeper (always solvable)", win_w(&g),
-                                   win_h(&g), 0, &win, &ren)) {
+                                   win_h(&g), SDL_WINDOW_RESIZABLE, &win,
+                                   &ren)) {
     fprintf(stderr, "Window creation failed: %s\n", SDL_GetError());
     SDL_Quit();
     return 1;
   }
   SDL_SetRenderVSync(ren, 1);
+  SDL_SetRenderLogicalPresentation(ren, win_w(&g), win_h(&g),
+                                   SDL_LOGICAL_PRESENTATION_LETTERBOX);
+  SDL_SetWindowMinimumSize(win, win_w(&g) / 2, win_h(&g) / 2);
 
   int running = 1;
   while (running) {
@@ -306,30 +319,31 @@ int main(int argc, char **argv) {
         case SDLK_ESCAPE:
           running = 0;
           break;
-        case SDLK_N:
+        case SDLK_R:
         case SDLK_F2:
-          new_game(&g, g.diff, win);
+          new_game(&g, g.diff, win, ren);
           break;
         case SDLK_1:
-          new_game(&g, 0, win);
+          new_game(&g, 0, win, ren);
           break;
         case SDLK_2:
-          new_game(&g, 1, win);
+          new_game(&g, 1, win, ren);
           break;
         case SDLK_3:
-          new_game(&g, 2, win);
+          new_game(&g, 2, win, ren);
           break;
         default:
           break;
         }
       } else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+        SDL_ConvertEventToRenderCoordinates(ren, &e);
         float mx = e.button.x, my = e.button.y;
         int clicked_button = 0;
         for (int k = 0; k < 3; k++) {
           Btn b = diff_button(&g, k);
           if (e.button.button == SDL_BUTTON_LEFT && mx >= b.x &&
               mx < b.x + b.w && my >= b.y && my < b.y + b.h) {
-            new_game(&g, k, win);
+            new_game(&g, k, win, ren);
             clicked_button = 1;
           }
         }
