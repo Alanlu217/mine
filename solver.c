@@ -46,7 +46,7 @@ void count_numbers(const Topo *t, const u8 *mines, u8 *num) {
 }
 
 int flood_reveal(const Topo *t, const u8 *mines, const u8 *num, u8 *revealed,
-                 const u8 *blocked, int start) {
+                 u8 *blocked, int start) {
   int stack[MAX_CELLS], sp = 0, added = 0;
   if (revealed[start] || mines[start] || (blocked && blocked[start]))
     return 0;
@@ -58,9 +58,11 @@ int flood_reveal(const Topo *t, const u8 *mines, const u8 *num, u8 *revealed,
     int x = stack[--sp];
     for (int k = 0; k < t->nbn[x]; k++) {
       int y = t->nb[x][k];
-      if (revealed[y] || mines[y] || (blocked && blocked[y]))
+      if (revealed[y] || mines[y])
         continue;
       revealed[y] = 1;
+      if (blocked)
+        blocked[y] = 0;
       added++;
       if (num[y] == 0)
         stack[sp++] = y;

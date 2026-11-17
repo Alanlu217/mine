@@ -1,4 +1,5 @@
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_events.h>
 #include <SDL3/SDL_main.h>
 
 #include <math.h>
@@ -263,9 +264,9 @@ static void draw_game(SDL_Renderer *r, const Game *g) {
   snprintf(buf, sizeof buf, "Time %03d", elapsed_secs(g));
   draw_text(r, (float)W - 12 - 9 * 16, 48, 2, buf, C_TEXT);
 
-  const char *status = g->won         ? "Solved! Press N"
-                       : g->over      ? "Boom! Press N"
-                       : g->generated ? "No guessing needed"
+  const char *status = g->won         ? "Solved! Press R"
+                       : g->over      ? "Boom! Press R"
+                       : g->generated ? ""
                                       : "Click any cell";
   draw_text_centered(r, W / 2.0f, 68, 2, status,
                      g->won ? (Color){120, 220, 140} : C_TEXT);
@@ -345,6 +346,7 @@ int main(int argc, char **argv) {
               mx < b.x + b.w && my >= b.y && my < b.y + b.h) {
             new_game(&g, k, win, ren);
             clicked_button = 1;
+            break;
           }
         }
         if (clicked_button)

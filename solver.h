@@ -38,7 +38,7 @@ void count_numbers(const Topo *t, const u8 *mines, u8 *num);
  * (flags) are skipped; blocked may be NULL. Returns how many cells were newly
  * revealed. */
 int flood_reveal(const Topo *t, const u8 *mines, const u8 *num, u8 *revealed,
-                 const u8 *blocked, int start);
+                 u8 *blocked, int start);
 
 /* 1 if pure logic, starting with a click on `start`, clears the whole board.
  * With check != 0, aborts if any deduction contradicts the real layout. */
