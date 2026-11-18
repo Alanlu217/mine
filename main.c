@@ -1,5 +1,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_main.h>
 
 #include <math.h>
@@ -94,6 +95,14 @@ static int elapsed_secs(const Game *g) {
     return 0;
   Uint64 s = (SDL_GetTicks() - g->start_ms) / 1000;
   return s > 999 ? 999 : (int)s;
+}
+
+static int mouse_to_cell(const Game *g, float mx, float my) {
+  int col = (int)floorf((mx - (float)board_x(g)) / CELL);
+  int row = (int)floorf((my - HEADER_H) / CELL);
+  if (col < 0 || col >= g->cols || row < 0 || row >= g->rows)
+    return -1;
+  return row * g->cols + col;
 }
 
 static void reveal(Game *g, int i) {
@@ -310,8 +319,13 @@ int main(int argc, char **argv) {
   SDL_SetWindowMinimumSize(win, win_w(&g) / 2, win_h(&g) / 2);
 
   int running = 1;
+  float mx = 0, my = 0;
   while (running) {
     SDL_Event e;
+
+    bool should_flag = false, should_reveal = false;
+    int mouse_clicked = -1;
+
     while (SDL_PollEvent(&e)) {
       if (e.type == SDL_EVENT_QUIT) {
         running = 0;
@@ -333,46 +347,59 @@ int main(int argc, char **argv) {
         case SDLK_3:
           new_game(&g, 2, win, ren);
           break;
+        case SDLK_F:
+          should_flag = true;
+          break;
+        case SDLK_SPACE:
+          should_reveal = true;
+          break;
         default:
           break;
         }
       } else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+        mouse_clicked = e.button.button;
+      } else if (e.type == SDL_EVENT_MOUSE_MOTION) {
         SDL_ConvertEventToRenderCoordinates(ren, &e);
-        float mx = e.button.x, my = e.button.y;
+        mx = e.motion.x;
+        my = e.motion.y;
+      }
+    }
+
+    do {
+      int i = mouse_to_cell(&g, mx, my);
+
+      if (mouse_clicked != -1) {
         int clicked_button = 0;
         for (int k = 0; k < 3; k++) {
           Btn b = diff_button(&g, k);
-          if (e.button.button == SDL_BUTTON_LEFT && mx >= b.x &&
-              mx < b.x + b.w && my >= b.y && my < b.y + b.h) {
+          if (mouse_clicked == SDL_BUTTON_LEFT && mx >= b.x && mx < b.x + b.w &&
+              my >= b.y && my < b.y + b.h) {
             new_game(&g, k, win, ren);
             clicked_button = 1;
             break;
           }
         }
         if (clicked_button)
-          continue;
+          break;
 
-        int col = (int)floorf((mx - (float)board_x(&g)) / CELL);
-        int row = (int)floorf((my - HEADER_H) / CELL);
-        if (col < 0 || col >= g.cols || row < 0 || row >= g.rows)
-          continue;
-        int i = row * g.cols + col;
-
-        if (e.button.button == SDL_BUTTON_RIGHT) {
-          flag_click(&g, i);
-        } else if (e.button.button == SDL_BUTTON_MIDDLE) {
-          if (!g.over && g.revealed[i]) {
-            chord(&g, i);
-            finish_check(&g);
-          }
-        } else if (e.button.button == SDL_BUTTON_LEFT) {
+        if (mouse_clicked == SDL_BUTTON_RIGHT) {
+          should_flag = true;
+        } else if (mouse_clicked == SDL_BUTTON_LEFT) {
           if (SDL_GetModState() & SDL_KMOD_CTRL)
-            flag_click(&g, i);
+            should_flag = true;
           else
-            left_click(&g, i);
+            should_reveal = true;
         }
       }
-    }
+
+      if (should_flag) {
+        flag_click(&g, i);
+      } else if (should_reveal) {
+        left_click(&g, i);
+      }
+
+    } while (false);
+
     draw_game(ren, &g);
     SDL_Delay(8);
   }

@@ -11,6 +11,9 @@ test: solver.c test_solver.c solver.h
 	$(CC) $(CFLAGS) solver.c test_solver.c -o test_solver -lm
 	./test_solver
 
+install: minesweeper
+	cp minesweeper ~/dotfiles/bin/minesweeper
+
 clean:
 	rm -f minesweeper test_solver
 
